@@ -39,5 +39,17 @@
   },
   "deployed": false,
   "production_backup_restore": "UNTESTED",
-  "local_docker": "unavailable daemon; CI pending"
+  "local_docker": "unavailable daemon; image validated in CI",
+  "linux_ci": {
+    "status": "PASS",
+    "commit": "3985e8c",
+    "url": "https://github.com/ElectusIA/engram-cloud-patched/actions/runs/34383554110",
+    "coverage": [
+      "cloud with ephemeral PostgreSQL",
+      "SQLite store",
+      "MCP",
+      "Docker build and version execution"
+    ],
+    "fixture_overlay": "tests/relations-fixture.patch (test data only)"
+  }
 }

@@ -61,3 +61,5 @@ compatibilidad y no modifica el binario ni relaja su validación.
 Resultados exactos y hashes de binarios locales: `validation-evidence.json`. La suite amplia tuvo 1.276 acciones de test/subtest PASS, 5 FAIL (incluye padre) y 29 SKIP. Autosync fall? tambi?n en retry aislado; MCP pas? el retry, conservando su fallo inicial.
 
 En m?quina nueva: instalar Go 1.25.10 desde la distribuci?n oficial (ZIP Windows con SHA-256 arriba) y ejecutar `./validate-candidate.ps1 -GoBinary <ruta/go.exe>`. El script clona/verifica upstream, aplica el parche idempotente y a?ade la regresi?n. No descarga toolchains ni modifica el Go global. CI prueba Linux con Postgres ef?mero y construye/ejecuta la imagen sin publicarla.
+
+CI Linux/Postgres e imagen **PASS** en commit `3985e8c`: [ejecuci?n 34383554110](https://github.com/ElectusIA/engram-cloud-patched/actions/runs/34383554110). El resultado no elimina las limitaciones Windows ni acredita restore o despliegue productivo.

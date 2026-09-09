@@ -51,6 +51,13 @@ por archivos abiertos; se conservan como limitaciones, sin modificar comportamie
 El pin de clientes permanece en 1.19.0 hasta imagen por digest, restore y compatibilidad
 CLI/MCP verificados contra un servidor aislado y después el servidor desplegado.
 
+La CI Linux confirmó build y ejecución de la imagen. La integración Postgres detectó un
+fixture upstream incompleto en `TestWriteChunkMaterializesRelationMutationIntoCloudMutations`:
+omitía `judgment_status`, `marked_by_actor` y `marked_by_kind`, campos que chunkcodec ya exige
+en v1.19.0 y que el modelo serializado de relaciones contiene. `tests/relations-fixture.patch`
+completa solo ese dato de prueba; conserva todas sus aserciones. Se aplica a la suite de
+compatibilidad y no modifica el binario ni relaja su validación.
+
 Resultados exactos y hashes de binarios locales: `validation-evidence.json`. La suite amplia tuvo 1.276 acciones de test/subtest PASS, 5 FAIL (incluye padre) y 29 SKIP. Autosync fall? tambi?n en retry aislado; MCP pas? el retry, conservando su fallo inicial.
 
 En m?quina nueva: instalar Go 1.25.10 desde la distribuci?n oficial (ZIP Windows con SHA-256 arriba) y ejecutar `./validate-candidate.ps1 -GoBinary <ruta/go.exe>`. El script clona/verifica upstream, aplica el parche idempotente y a?ade la regresi?n. No descarga toolchains ni modifica el Go global. CI prueba Linux con Postgres ef?mero y construye/ejecuta la imagen sin publicarla.

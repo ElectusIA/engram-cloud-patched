@@ -35,6 +35,7 @@ jobs:
           fi
           sed -i 's/if key == "token_prefix" {/if key == "token_prefix" || key == "issued_token" {/' internal/cloud/cloudstore/identity.go
           go test ./internal/cloud/cloudstore -run TestElectusIssuedTokenAuditMetadata -count=1
+          git apply ../tests/relations-fixture.patch
       - name: Cloud, SQLite and MCP compatibility with ephemeral Postgres
         working-directory: upstream
         env:

@@ -26,6 +26,15 @@ $after = $before.Replace('if key == "token_prefix" {', 'if key == "token_prefix"
 if (-not $after.Contains('if key == "token_prefix" || key == "issued_token" {')) { throw 'Patch precondition failed' }
 [IO.File]::WriteAllText($patchFile, $after, (New-Object Text.UTF8Encoding $false))
 Copy-Item -LiteralPath (Join-Path $candidateRoot 'tests/electus_patch_test.go') -Destination (Join-Path $candidateRoot 'upstream/internal/cloud/cloudstore/electus_patch_test.go') -ErrorAction Stop
+$fixturePatch = Join-Path $candidateRoot 'tests/relations-fixture.patch'
+& git -C (Join-Path $candidateRoot 'upstream') apply --check $fixturePatch 2>$null
+if ($LASTEXITCODE -eq 0) {
+    & git -C (Join-Path $candidateRoot 'upstream') apply $fixturePatch
+    if ($LASTEXITCODE -ne 0) { throw 'Fixture patch failed' }
+} else {
+    & git -C (Join-Path $candidateRoot 'upstream') apply --reverse --check $fixturePatch 2>$null
+    if ($LASTEXITCODE -ne 0) { throw 'Unexpected relation fixture; preserved checkout' }
+}
 New-Item -ItemType Directory -Path (Join-Path $candidateRoot 'artifacts') -Force -ErrorAction Stop | Out-Null
 Push-Location (Join-Path $candidateRoot 'upstream')
 try {

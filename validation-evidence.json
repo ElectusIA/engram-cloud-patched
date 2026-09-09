@@ -1,0 +1,43 @@
+{
+  "upstream_commit": "ba9e46ced152c37a7cb9e576153c41995873e2fc",
+  "candidate_version": "v1.20.0-electus-patch1",
+  "toolchain": "go1.25.10 windows/amd64",
+  "patch_regression": {
+    "unpatched": "FAIL expected: issued_token rejected",
+    "patched": "PASS"
+  },
+  "wide_windows_suite": {
+    "test_and_subtest_actions": {
+      "pass": 1276,
+      "fail": 5,
+      "skip": 29
+    },
+    "status": "FAIL",
+    "failed_tests": [
+      "TestManagerRunPanicRecovery",
+      "TestMigrate_Idempotent",
+      "TestNewErrorBranches/fails_when_migration_encounters_conflicting_object",
+      "TestNewErrorBranches (parent)",
+      "TestCapturePassiveRecordsToolCall"
+    ]
+  },
+  "focused_retry": {
+    "TestManagerRunPanicRecovery": "FAIL same timing assertion",
+    "TestCapturePassiveRecordsToolCall": "PASS"
+  },
+  "builds": {
+    "engram-candidate.exe": {
+      "status": "PASS",
+      "bytes": 20091904,
+      "sha256": "fd86b030be5bb96bf3b10719ed4a301558efba3df72d8d87ecf4e51670784a16"
+    },
+    "engram-linux-amd64": {
+      "status": "PASS",
+      "bytes": 19546296,
+      "sha256": "c50e6a4c80e4b5112de45b9c7ee7524c69a2e5f8ed9b99b1c77279b120b3d8d2"
+    }
+  },
+  "deployed": false,
+  "production_backup_restore": "UNTESTED",
+  "local_docker": "unavailable daemon; CI pending"
+}

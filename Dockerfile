@@ -16,8 +16,10 @@
 FROM golang:1.25-alpine AS builder
 RUN apk add --no-cache git
 WORKDIR /src
-ARG ENGRAM_REF=v1.19.0
+ARG ENGRAM_REF=v1.20.0
+ARG ENGRAM_COMMIT=ba9e46ced152c37a7cb9e576153c41995873e2fc
 RUN git clone --depth 1 --branch "${ENGRAM_REF}" https://github.com/Gentleman-Programming/engram.git .
+RUN test "$(git rev-parse HEAD)" = "${ENGRAM_COMMIT}"
 
 # Parche: permitir la clave `issued_token` (booleano) en el guard de metadata de auditoría.
 RUN set -eux; \
@@ -25,6 +27,9 @@ RUN set -eux; \
     grep -q 'key == "token_prefix"' "$f"; \
     sed -i 's/if key == "token_prefix" {/if key == "token_prefix" || key == "issued_token" {/' "$f"; \
     grep -q 'key == "issued_token"' "$f"
+
+COPY tests/electus_patch_test.go internal/cloud/cloudstore/electus_patch_test.go
+RUN go test ./internal/cloud/cloudstore -run TestElectusIssuedTokenAuditMetadata -count=1
 
 RUN CGO_ENABLED=0 GOOS=linux go build \
       -ldflags="-s -w -X main.version=${ENGRAM_REF}-electus-patch1" \

@@ -1,6 +1,6 @@
 {
   "upstream_commit": "ba9e46ced152c37a7cb9e576153c41995873e2fc",
-  "candidate_version": "v1.20.0-electus-patch1",
+  "candidate_version": "v1.20.0-electus-patch2",
   "toolchain": "go1.25.10 windows/amd64",
   "patch_regression": {
     "unpatched": "FAIL expected: issued_token rejected",
@@ -37,8 +37,38 @@
       "sha256": "e7fcf0ddc601824aa20b8d0312d9f45382d4c8021cf2da0210608bcdb54e62a4"
     }
   },
-  "deployed": false,
-  "production_backup_restore": "UNTESTED",
+  "deployed": true,
+  "production_backup_restore": {
+    "status": "PASS isolated restore and candidate startup",
+    "tables": 11,
+    "format": "gzip PostgreSQL custom archive (pg_restore)",
+    "backup": "2026-09-10T03-00-00-178Z.sql.gz",
+    "sha256": "ee151e54ecf61d5e007ae6ac3ddcd2aa39106b9ed95314dcfbcd3ed11ed5d322",
+    "fresh_predeploy_backup": "2026-09-10T09-58-18-463Z.sql.gz"
+  },
+  "tooling_deployment": {
+    "commit": "e2bacded16e43f0011e142fa8497ff6e254fd2e3",
+    "date": "2026-09-10",
+    "health": "PASS",
+    "version": "1.20.0",
+    "patchRevision": "electus-1.20.0-patch2",
+    "docker_image_id": "sha256:42d8d68afd4069fe5d7c684e98d45ea2dfa740fc3cda2678f88e58f1ef620423",
+    "identity_note": "Docker content-addressed image ID verified by container inspection; not a registry RepoDigest. Exposed through ENGRAM_IMAGE_DIGEST.",
+    "multiagent": "Preserved at electus-1.19.0-preserved-194 with autoDeploy disabled; no deployment"
+  },
+  "official_windows_client": {
+    "version": "1.20.0",
+    "cli": "PASS isolated local save/search",
+    "mcp": "PASS initialize/tools/list/mem_search; 22 tools",
+    "cliSurfaceSha256": "4bee83dc6c1ee8bd3d557eb72d81bb25a42d0014599b2b9ed0debb026f3184ec",
+    "installed_globally": false
+  },
+  "isolated_cloud_recovery": {
+    "date": "2026-09-10",
+    "roundtrip": "PASS patched 1.20 client save/export twice/import into separate SQLite/search marker",
+    "rollback": "PASS preserved 1.19 server startup and health against the restored DB after 1.20 sync",
+    "limitations": "Not a full CLI 1.19/new-server matrix or native Claude/Codex functional smoke. No production rollback performed."
+  },
   "local_docker": "unavailable daemon; image validated in CI",
   "linux_ci": {
     "status": "PASS",
@@ -69,5 +99,9 @@
     ],
     "regression": "constructor RED before patch, GREEN after; focused repeats PASS"
   },
-  "current_patch_ci": "PENDING rerun with constructor cleanup"
+  "current_patch_ci": {
+    "status": "PASS Windows, Linux/Postgres and Docker image",
+    "commit": "df2e7a0a441798d7506655d16984cb837af7d1fb",
+    "url": "https://github.com/ElectusIA/engram-cloud-patched/actions/runs/34463343554"
+  }
 }

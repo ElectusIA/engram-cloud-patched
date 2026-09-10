@@ -29,7 +29,32 @@ verificación pre y post), y compila el binario Go. Runtime `alpine`, usuario no
 
 Mantener hasta que el upstream corrija el bug; entonces volver a la imagen oficial pineada.
 
-## Candidato v1.20.0 (platform#194, sin despliegue)
+## Estado vigente (2026-09-10)
+
+El PR #1 se integró como `e2bacded16e43f0011e142fa8497ff6e254fd2e3` y tooling
+ejecuta `v1.20.0-electus-patch2`. La CI Windows, Linux/Postgres e imagen pasó sobre
+`df2e7a0`. Antes del despliegue se restauró un backup real en una DB independiente
+(11 tablas) y se comprobó el arranque del candidato. Hay un backup previo adicional.
+`validation-evidence.json` conserva resultados iniciales, correcciones y evidencia vigente.
+
+La ruta `/health` ahora publica versión y revisión del parche. `imageDigest` es opcional
+y procede de `ENGRAM_IMAGE_DIGEST`, validado como sha256 y contrastado con la imagen
+en Dokploy. No se deben inferir la versión o el digest a partir del nombre `latest`.
+La identidad desplegada es el ID Docker de contenido, no un RepoDigest de registry.
+
+Multiagente sigue en 1.19.0 mediante `electus-1.19.0-preserved-194`, sin redeploy.
+AutoDeploy está desactivado en ambos servicios; la promoción es explícita.
+El pin del cliente Electus sigue 1.19.0 hasta cerrar la matriz de compatibilidad.
+
+`tests/restore-compose.example.json` reproduce el ensayo aislado: descarga de backup,
+restore en tmpfs, roundtrip 1.20 y arranque de retorno 1.19. No expone puertos ni usa la
+base productiva. Inyectar RESTORE_R2_ACCESS_KEY, RESTORE_R2_SECRET_KEY y
+RESTORE_R2_ENDPOINT como secretos del entorno; ajustar la ruta del backup disponible.
+Los tokens literales de ensayo son deliberadamente exclusivos del entorno aislado y
+no deben reutilizarse en servicios públicos. Eliminar compose y volúmenes al finalizar.
+Roundtrip y retorno pasaron el 10-sep; el entorno temporal ya fue retirado.
+
+## Histórico de preparación del candidato v1.20.0 (platform#194)
 
 Esta rama prepara `v1.20.0-electus-patch1` sobre el commit upstream
 `ba9e46ced152c37a7cb9e576153c41995873e2fc`. El Dockerfile verifica el commit

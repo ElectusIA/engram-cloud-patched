@@ -43,6 +43,9 @@ jobs:
           fi
           git apply ../tests/store-constructor-cleanup.patch
           git apply ../tests/windows-test-fixtures.patch
+          cp ../tests/health_metadata.go internal/cloud/cloudserver/electus_metadata.go
+          cp ../tests/health_metadata_test.go internal/cloud/cloudserver/electus_metadata_test.go
+          git apply ../tests/health-metadata.patch
       - name: Cloud, SQLite and MCP compatibility with ephemeral Postgres
         working-directory: upstream
         env:

@@ -36,6 +36,13 @@ jobs:
           sed -i 's/if key == "token_prefix" {/if key == "token_prefix" || key == "issued_token" {/' internal/cloud/cloudstore/identity.go
           go test ./internal/cloud/cloudstore -run TestElectusIssuedTokenAuditMetadata -count=1
           git apply ../tests/relations-fixture.patch
+          cp ../tests/store_cleanup_test.go internal/store/electus_cleanup_test.go
+          if go test ./internal/store -run TestElectusConstructorClosesDatabaseOnFailure -count=1; then
+            echo 'Expected unpatched constructor leak regression failure'
+            exit 1
+          fi
+          git apply ../tests/store-constructor-cleanup.patch
+          git apply ../tests/windows-test-fixtures.patch
       - name: Cloud, SQLite and MCP compatibility with ephemeral Postgres
         working-directory: upstream
         env:
@@ -48,3 +55,15 @@ jobs:
       - uses: actions/checkout@v4
       - run: docker build --tag engram-candidate:194 .
       - run: docker run --rm engram-candidate:194 version
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.10'
+          cache: false
+      - name: Windows suite and Windows/Linux builds
+        shell: pwsh
+        run: ./validate-candidate.ps1 -GoBinary (Get-Command go).Source

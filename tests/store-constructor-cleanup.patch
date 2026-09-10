@@ -1,0 +1,46 @@
+diff --git a/internal/store/store.go b/internal/store/store.go
+index 9c6537b..8d49797 100644
+--- a/internal/store/store.go
++++ b/internal/store/store.go
+@@ -609,7 +609,7 @@ func (s *Store) commitHook(tx *sql.Tx) error {
+ 	return tx.Commit()
+ }
+ 
+-func New(cfg Config) (*Store, error) {
++func New(cfg Config) (_ *Store, err error) {
+ 	if !filepath.IsAbs(cfg.DataDir) {
+ 		return nil, fmt.Errorf("engram: data directory must be an absolute path, got %q — set ENGRAM_DATA_DIR or ensure your home directory is resolvable", cfg.DataDir)
+ 	}
+@@ -622,6 +622,11 @@ func New(cfg Config) (*Store, error) {
+ 	if err != nil {
+ 		return nil, fmt.Errorf("engram: open database: %w", err)
+ 	}
++	defer func() {
++		if err != nil {
++			err = errors.Join(err, db.Close())
++		}
++	}()
+ 	db.SetMaxOpenConns(1)
+ 
+ 	// SQLite performance pragmas
+@@ -650,7 +655,7 @@ func New(cfg Config) (*Store, error) {
+ 
+ // newWithoutRepair is the same as New but skips repairEnrolledProjectSyncMutations.
+ // It exists solely to support tests that need to seed data and call repair manually.
+-func newWithoutRepair(cfg Config) (*Store, error) {
++func newWithoutRepair(cfg Config) (_ *Store, err error) {
+ 	if !filepath.IsAbs(cfg.DataDir) {
+ 		return nil, fmt.Errorf("engram: data directory must be an absolute path, got %q — set ENGRAM_DATA_DIR or ensure your home directory is resolvable", cfg.DataDir)
+ 	}
+@@ -663,6 +668,11 @@ func newWithoutRepair(cfg Config) (*Store, error) {
+ 	if err != nil {
+ 		return nil, fmt.Errorf("engram: open database: %w", err)
+ 	}
++	defer func() {
++		if err != nil {
++			err = errors.Join(err, db.Close())
++		}
++	}()
+ 	db.SetMaxOpenConns(1)
+ 
+ 	pragmas := []string{

@@ -29,7 +29,10 @@ RUN set -eux; \
     grep -q 'key == "issued_token"' "$f"
 
 COPY tests/electus_patch_test.go internal/cloud/cloudstore/electus_patch_test.go
-RUN go test ./internal/cloud/cloudstore -run TestElectusIssuedTokenAuditMetadata -count=1
+COPY tests/store_cleanup_test.go internal/store/electus_cleanup_test.go
+COPY tests/store-constructor-cleanup.patch /tmp/store-constructor-cleanup.patch
+RUN git apply --check /tmp/store-constructor-cleanup.patch && git apply /tmp/store-constructor-cleanup.patch
+RUN go test ./internal/cloud/cloudstore ./internal/store -run 'TestElectusIssuedTokenAuditMetadata|TestElectusConstructorClosesDatabaseOnFailure' -count=1
 
 RUN CGO_ENABLED=0 GOOS=linux go build \
       -ldflags="-s -w -X main.version=${ENGRAM_REF}-electus-patch1" \

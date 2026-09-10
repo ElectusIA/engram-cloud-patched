@@ -28,13 +28,13 @@
   "builds": {
     "engram-candidate.exe": {
       "status": "PASS",
-      "bytes": 20091904,
-      "sha256": "fd86b030be5bb96bf3b10719ed4a301558efba3df72d8d87ecf4e51670784a16"
+      "bytes": 20093440,
+      "sha256": "a225592adaf473af1634bf63c9bd220792ddb1971a212a0965a8a0250554da76"
     },
     "engram-linux-amd64": {
       "status": "PASS",
-      "bytes": 19546296,
-      "sha256": "c50e6a4c80e4b5112de45b9c7ee7524c69a2e5f8ed9b99b1c77279b120b3d8d2"
+      "bytes": 19550392,
+      "sha256": "e7fcf0ddc601824aa20b8d0312d9f45382d4c8021cf2da0210608bcdb54e62a4"
     }
   },
   "deployed": false,
@@ -50,6 +50,24 @@
       "MCP",
       "Docker build and version execution"
     ],
-    "fixture_overlay": "tests/relations-fixture.patch (test data only)"
-  }
+    "fixture_overlay": "tests/relations-fixture.patch (test data only)",
+    "historical": true
+  },
+  "windows_corrected_suite": {
+    "status": "PASS",
+    "date": "2026-09-10",
+    "test_and_subtest_actions": {
+      "pass": 1286,
+      "fail": 0,
+      "skip": 29
+    },
+    "command": "./validate-candidate.ps1",
+    "fixes": [
+      "constructor database handle cleanup",
+      "close migration fixture rows",
+      "single-cycle panic recovery fixtures"
+    ],
+    "regression": "constructor RED before patch, GREEN after; focused repeats PASS"
+  },
+  "current_patch_ci": "PENDING rerun with constructor cleanup"
 }

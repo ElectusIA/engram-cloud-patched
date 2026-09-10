@@ -1,0 +1,145 @@
+{
+  "services": {
+    "download": {
+      "image": "rclone/rclone:1.70.3",
+      "command": [
+        "copyto",
+        "backup:electus-dokploy-backups/electustooling-engramdbv2-8n8uzr/engram-db-tooling/2026-09-10T03-00-00-178Z.sql.gz",
+        "/backup/engram.sql.gz",
+        "--log-level",
+        "ERROR"
+      ],
+      "environment": {
+        "RCLONE_CONFIG_BACKUP_TYPE": "s3",
+        "RCLONE_CONFIG_BACKUP_PROVIDER": "Cloudflare",
+        "RCLONE_CONFIG_BACKUP_ACCESS_KEY_ID": "${RESTORE_R2_ACCESS_KEY}",
+        "RCLONE_CONFIG_BACKUP_SECRET_ACCESS_KEY": "${RESTORE_R2_SECRET_KEY}",
+        "RCLONE_CONFIG_BACKUP_ENDPOINT": "${RESTORE_R2_ENDPOINT}",
+        "RCLONE_CONFIG_BACKUP_REGION": "auto"
+      },
+      "volumes": [
+        "backup:/backup"
+      ],
+      "mem_limit": "128m",
+      "cpus": 0.25,
+      "restart": "no"
+    },
+    "restore-db": {
+      "image": "postgres:16-alpine",
+      "depends_on": {
+        "download": {
+          "condition": "service_completed_successfully"
+        }
+      },
+      "environment": {
+        "POSTGRES_USER": "engram",
+        "POSTGRES_DB": "engram_cloud",
+        "POSTGRES_HOST_AUTH_METHOD": "trust"
+      },
+      "volumes": [
+        "backup:/backup:ro"
+      ],
+      "tmpfs": [
+        "/var/lib/postgresql/data:size=512m"
+      ],
+      "networks": [
+        "isolated"
+      ],
+      "mem_limit": "640m",
+      "cpus": 0.5,
+      "entrypoint": [
+        "/bin/sh",
+        "-ec"
+      ],
+      "command": [
+        "set -o pipefail\ndocker-entrypoint.sh postgres >/tmp/postgres.log 2>&1 &\npid=$$!\ntrap 'kill \"$$pid\"; wait \"$$pid\"' TERM INT\nfor i in $$(seq 1 60); do pg_isready -h 127.0.0.1 -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\" >/dev/null 2>&1 && break; sleep 1; done\ngzip -t /backup/engram.sql.gz\nsha256sum /backup/engram.sql.gz\ngzip -dc /backup/engram.sql.gz > /tmp/backup.dump\nif head -c 5 /tmp/backup.dump | grep -q PGDMP; then\n echo format=custom\n pg_restore -h 127.0.0.1 --no-owner --no-acl --exit-on-error -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\" /tmp/backup.dump >/tmp/restore.log 2>&1 && touch /tmp/restore-pass\nelse\n echo format=sql\n psql -h 127.0.0.1 -v ON_ERROR_STOP=1 -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\" -f /tmp/backup.dump >/tmp/restore.log 2>&1 && touch /tmp/restore-pass\nfi\nif test -f /tmp/restore-pass; then\n echo RESTORE_PASS\n psql -h 127.0.0.1 -At -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\" -c \"SELECT 'restored_tables=' || count(*) FROM information_schema.tables WHERE table_schema NOT IN ('pg_catalog','information_schema');\"\nelse\n echo RESTORE_FAILED\n for pattern in \"does not exist\" \"role\" \"connection\" \"already exists\" \"invalid command\" \"syntax error\" \"custom-format\" \"permission denied\"; do if grep -q \"$$pattern\" /tmp/restore.log; then echo \"failure_category=$$pattern\"; fi; done\n exit 1\nfi\nwait \"$$pid\""
+      ],
+      "restart": "no",
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "test -f /tmp/restore-pass && pg_isready -h 127.0.0.1 -U engram -d engram_cloud"
+        ],
+        "interval": "5s",
+        "timeout": "3s",
+        "retries": 20
+      }
+    },
+    "candidate": {
+      "build": {
+        "context": "https://github.com/ElectusIA/engram-cloud-patched.git#df2e7a0a441798d7506655d16984cb837af7d1fb"
+      },
+      "image": "electus-engram-restore-194:df2e7a0",
+      "depends_on": {
+        "restore-db": {
+          "condition": "service_healthy"
+        }
+      },
+      "networks": [
+        "isolated"
+      ],
+      "mem_limit": "256m",
+      "cpus": 0.5,
+      "environment": {
+        "ENGRAM_DATABASE_URL": "postgres://engram@restore-db:5432/engram_cloud?sslmode=disable",
+        "ENGRAM_JWT_SECRET": "isolated-restore-194-validation-jwt-not-production-20260910",
+        "ENGRAM_CLOUD_TOKEN_PEPPER": "isolated-restore-194-validation-pepper-not-production-20260910",
+        "ENGRAM_CLOUD_ADMIN": "isolated-restore-194-admin-smoke-not-production",
+        "ENGRAM_CLOUD_ALLOWED_PROJECTS": "electus-platform",
+        "ENGRAM_PORT": "18080",
+        "ENGRAM_CLOUD_HOST": "127.0.0.1",
+        "ENGRAM_CLOUD_TOKEN": "isolated-restore-194-api-smoke-not-production"
+      },
+      "entrypoint": [
+        "/bin/sh",
+        "-ec"
+      ],
+      "command": [
+        "engram version\nengram cloud serve >/tmp/candidate.log 2>&1 &\npid=$$!\ntrap 'kill \"$$pid\"; wait \"$$pid\"' TERM INT\nfor i in $$(seq 1 60); do\n if wget -q -O /tmp/health http://127.0.0.1:18080/health; then echo CANDIDATE_RESTORED_DB_HEALTH_PASS; touch /tmp/candidate-pass; break; fi\n sleep 1\ndone\ntest -f /tmp/candidate-pass || { echo CANDIDATE_HEALTH_FAILED; exit 1; }\ntrap 'for f in /tmp/smoke-*.log; do test ! -f \"$$f\" || tail -n 3 \"$$f\"; done' EXIT\nexport ENGRAM_DATA_DIR=/tmp/smoke-writer\nexport ENGRAM_CLOUD_SERVER=http://127.0.0.1:18080\nexport ENGRAM_CLOUD_AUTOSYNC=false\nengram save 'Isolated validation 194' 'controlled-roundtrip-194' --project electus-platform --topic validation/194 >/tmp/smoke-save.log 2>&1\nengram cloud enroll electus-platform >/tmp/smoke-enroll.log 2>&1\nengram sync --cloud --project electus-platform >/tmp/smoke-sync.log 2>&1\nengram sync --cloud --project electus-platform >>/tmp/smoke-sync.log 2>&1\nexport ENGRAM_DATA_DIR=/tmp/smoke-reader\nengram cloud enroll electus-platform >/tmp/smoke-enroll-reader.log 2>&1\nengram sync --cloud --import --project electus-platform >/tmp/smoke-read-sync.log 2>&1\nengram search controlled-roundtrip-194 --project electus-platform > /tmp/readback 2>&1\ngrep -q 'Isolated validation 194' /tmp/readback\necho CLOUD_ROUNDTRIP_REPEAT_SYNC_PASS\nkill \"$$pid\"\nwait \"$$pid\" || true\n"
+      ],
+      "restart": "no"
+    },
+    "rollback": {
+      "build": {
+        "context": "https://github.com/ElectusIA/engram-cloud-patched.git#6db0808a0cbb4749dd66a8d1ce8acf9c2fb95f9f"
+      },
+      "image": "electus-engram-rollback-194:1.19.0",
+      "depends_on": {
+        "candidate": {
+          "condition": "service_completed_successfully"
+        }
+      },
+      "networks": [
+        "isolated"
+      ],
+      "mem_limit": "256m",
+      "cpus": 0.5,
+      "environment": {
+        "ENGRAM_DATABASE_URL": "postgres://engram@restore-db:5432/engram_cloud?sslmode=disable",
+        "ENGRAM_JWT_SECRET": "isolated-restore-194-validation-jwt-not-production-20260910",
+        "ENGRAM_CLOUD_TOKEN_PEPPER": "isolated-restore-194-validation-pepper-not-production-20260910",
+        "ENGRAM_CLOUD_ADMIN": "isolated-restore-194-admin-smoke-not-production",
+        "ENGRAM_CLOUD_ALLOWED_PROJECTS": "electus-platform",
+        "ENGRAM_PORT": "18080",
+        "ENGRAM_CLOUD_HOST": "127.0.0.1",
+        "ENGRAM_CLOUD_TOKEN": "isolated-restore-194-api-smoke-not-production"
+      },
+      "entrypoint": [
+        "/bin/sh",
+        "-ec"
+      ],
+      "command": [
+        "engram cloud serve >/tmp/rollback.log 2>&1 &\npid=$$!\nfor i in $$(seq 1 60); do\n if wget -q -O /tmp/health http://127.0.0.1:18080/health; then echo ROLLBACK_119_AFTER_120_HEALTH_PASS; kill \"$$pid\"; wait \"$$pid\" || true; exit 0; fi\n sleep 1\ndone\necho ROLLBACK_HEALTH_FAILED\nexit 1"
+      ],
+      "restart": "no"
+    }
+  },
+  "volumes": {
+    "backup": {}
+  },
+  "networks": {
+    "isolated": {
+      "internal": true
+    }
+  }
+}

@@ -1,0 +1,13 @@
+diff --git a/internal/cloud/cloudserver/cloudserver.go b/internal/cloud/cloudserver/cloudserver.go
+index 249029b..dae9e60 100644
+--- a/internal/cloud/cloudserver/cloudserver.go
++++ b/internal/cloud/cloudserver/cloudserver.go
+@@ -409,7 +409,7 @@ func dashboardCookieSecure(r *http.Request) bool {
+ }
+ 
+ func (s *CloudServer) handleHealth(w http.ResponseWriter, _ *http.Request) {
+-	jsonResponse(w, http.StatusOK, map[string]any{"status": "ok", "service": "engram-cloud"})
++	jsonResponse(w, http.StatusOK, electusHealthMetadata())
+ }
+ 
+ func (s *CloudServer) isDashboardAdmin(r *http.Request) bool {

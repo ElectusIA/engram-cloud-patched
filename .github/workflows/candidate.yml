@@ -1,0 +1,72 @@
+name: candidate-validation
+on: [pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  compatibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: engram_candidate
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ['127.0.0.1:5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d engram_candidate"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.10'
+          cache: false
+      - name: Prepare exact upstream and Electus patch
+        shell: bash
+        run: |
+          git clone --depth 1 --branch v1.20.0 https://github.com/Gentleman-Programming/engram.git upstream
+          test "$(git -C upstream rev-parse HEAD)" = ba9e46ced152c37a7cb9e576153c41995873e2fc
+          cp tests/electus_patch_test.go upstream/internal/cloud/cloudstore/
+          cd upstream
+          if go test ./internal/cloud/cloudstore -run TestElectusIssuedTokenAuditMetadata -count=1; then
+            echo 'Expected unpatched regression failure; review whether patch remains necessary'
+            exit 1
+          fi
+          sed -i 's/if key == "token_prefix" {/if key == "token_prefix" || key == "issued_token" {/' internal/cloud/cloudstore/identity.go
+          go test ./internal/cloud/cloudstore -run TestElectusIssuedTokenAuditMetadata -count=1
+          git apply ../tests/relations-fixture.patch
+          cp ../tests/store_cleanup_test.go internal/store/electus_cleanup_test.go
+          if go test ./internal/store -run TestElectusConstructorClosesDatabaseOnFailure -count=1; then
+            echo 'Expected unpatched constructor leak regression failure'
+            exit 1
+          fi
+          git apply ../tests/store-constructor-cleanup.patch
+          git apply ../tests/windows-test-fixtures.patch
+          cp ../tests/health_metadata.go internal/cloud/cloudserver/electus_metadata.go
+          cp ../tests/health_metadata_test.go internal/cloud/cloudserver/electus_metadata_test.go
+          git apply ../tests/health-metadata.patch
+      - name: Cloud, SQLite and MCP compatibility with ephemeral Postgres
+        working-directory: upstream
+        env:
+          CLOUDSTORE_TEST_DSN: postgres://postgres@127.0.0.1:5432/engram_candidate?sslmode=disable
+        run: go test ./internal/cloud/... ./internal/store ./internal/mcp -count=1 -timeout=10m
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build --tag engram-candidate:194 .
+      - run: docker run --rm engram-candidate:194 version
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.10'
+          cache: false
+      - name: Windows suite and Windows/Linux builds
+        shell: pwsh
+        run: ./validate-candidate.ps1 -GoBinary (Get-Command go).Source

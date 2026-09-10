@@ -1,0 +1,73 @@
+{
+  "upstream_commit": "ba9e46ced152c37a7cb9e576153c41995873e2fc",
+  "candidate_version": "v1.20.0-electus-patch1",
+  "toolchain": "go1.25.10 windows/amd64",
+  "patch_regression": {
+    "unpatched": "FAIL expected: issued_token rejected",
+    "patched": "PASS"
+  },
+  "wide_windows_suite": {
+    "test_and_subtest_actions": {
+      "pass": 1276,
+      "fail": 5,
+      "skip": 29
+    },
+    "status": "FAIL",
+    "failed_tests": [
+      "TestManagerRunPanicRecovery",
+      "TestMigrate_Idempotent",
+      "TestNewErrorBranches/fails_when_migration_encounters_conflicting_object",
+      "TestNewErrorBranches (parent)",
+      "TestCapturePassiveRecordsToolCall"
+    ]
+  },
+  "focused_retry": {
+    "TestManagerRunPanicRecovery": "FAIL same timing assertion",
+    "TestCapturePassiveRecordsToolCall": "PASS"
+  },
+  "builds": {
+    "engram-candidate.exe": {
+      "status": "PASS",
+      "bytes": 20093440,
+      "sha256": "a225592adaf473af1634bf63c9bd220792ddb1971a212a0965a8a0250554da76"
+    },
+    "engram-linux-amd64": {
+      "status": "PASS",
+      "bytes": 19550392,
+      "sha256": "e7fcf0ddc601824aa20b8d0312d9f45382d4c8021cf2da0210608bcdb54e62a4"
+    }
+  },
+  "deployed": false,
+  "production_backup_restore": "UNTESTED",
+  "local_docker": "unavailable daemon; image validated in CI",
+  "linux_ci": {
+    "status": "PASS",
+    "commit": "3985e8c",
+    "url": "https://github.com/ElectusIA/engram-cloud-patched/actions/runs/34383554110",
+    "coverage": [
+      "cloud with ephemeral PostgreSQL",
+      "SQLite store",
+      "MCP",
+      "Docker build and version execution"
+    ],
+    "fixture_overlay": "tests/relations-fixture.patch (test data only)",
+    "historical": true
+  },
+  "windows_corrected_suite": {
+    "status": "PASS",
+    "date": "2026-09-10",
+    "test_and_subtest_actions": {
+      "pass": 1286,
+      "fail": 0,
+      "skip": 29
+    },
+    "command": "./validate-candidate.ps1",
+    "fixes": [
+      "constructor database handle cleanup",
+      "close migration fixture rows",
+      "single-cycle panic recovery fixtures"
+    ],
+    "regression": "constructor RED before patch, GREEN after; focused repeats PASS"
+  },
+  "current_patch_ci": "PENDING rerun with constructor cleanup"
+}

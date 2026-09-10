@@ -1,0 +1,73 @@
+diff --git a/internal/cloud/autosync/manager_test.go b/internal/cloud/autosync/manager_test.go
+index 7e33ada..251a05a 100644
+--- a/internal/cloud/autosync/manager_test.go
++++ b/internal/cloud/autosync/manager_test.go
+@@ -745,19 +745,20 @@ func TestManagerRunPanicRecovery(t *testing.T) {
+ 
+ 	cfg := DefaultConfig()
+ 	cfg.DebounceDuration = 10 * time.Millisecond
+-	cfg.PollInterval = 10 * time.Millisecond
++	// One dirty cycle: a 10ms polling loop can erase the recovered state before Windows schedules this assertion.
++	cfg.PollInterval = time.Hour
+ 	cfg.BaseBackoff = 10 * time.Millisecond
+ 	cfg.MaxBackoff = 100 * time.Millisecond
+ 
+ 	mgr := New(ls, tr, cfg)
+ 	mgr.transport = &panicOnceTransport{delegate: tr, panicOnce: &panicOnce}
+ 
+-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
++	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+ 	defer cancel()
+ 	go mgr.Run(ctx)
+ 	mgr.NotifyDirty()
+ 
+-	deadline := time.Now().Add(500 * time.Millisecond)
++	deadline := time.Now().Add(2 * time.Second)
+ 	for time.Now().Before(deadline) {
+ 		st := mgr.Status()
+ 		if st.Phase == PhaseBackoff && st.ReasonCode == "internal_error" {
+@@ -894,19 +895,20 @@ func TestManagerPanicSetsBackoff(t *testing.T) {
+ 
+ 	cfg := DefaultConfig()
+ 	cfg.DebounceDuration = 10 * time.Millisecond
+-	cfg.PollInterval = 10 * time.Millisecond
++	// Observe a single recovered cycle without a later poll overwriting its status.
++	cfg.PollInterval = time.Hour
+ 	cfg.BaseBackoff = 10 * time.Millisecond
+ 	cfg.MaxBackoff = 100 * time.Millisecond
+ 
+ 	mgr := New(ls, tr, cfg)
+ 	mgr.transport = &panicOnceTransport{delegate: tr, panicOnce: &panicOnce}
+ 
+-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
++	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+ 	defer cancel()
+ 	go mgr.Run(ctx)
+ 	mgr.NotifyDirty()
+ 
+-	deadline := time.Now().Add(500 * time.Millisecond)
++	deadline := time.Now().Add(2 * time.Second)
+ 	for time.Now().Before(deadline) {
+ 		st := mgr.Status()
+ 		if st.Phase == PhaseBackoff && st.ReasonCode == "internal_error" {
+diff --git a/internal/store/store_migration_test.go b/internal/store/store_migration_test.go
+index ef3df2d..027a8ec 100644
+--- a/internal/store/store_migration_test.go
++++ b/internal/store/store_migration_test.go
+@@ -350,12 +350,15 @@ func TestMigrate_Idempotent(t *testing.T) {
+ 	}
+ 
+ 	// Assert new columns still present and queryable.
+-	_, err = s2.db.Query(
++	rows, err := s2.db.Query(
+ 		`SELECT review_after, expires_at FROM observations LIMIT 1`,
+ 	)
+ 	if err != nil {
+ 		t.Fatalf("new columns missing after second migrate: %v (expected red)", err)
+ 	}
++	if err := rows.Close(); err != nil {
++		t.Fatalf("close column probe: %v", err)
++	}
+ }
+ 
+ // ─── A.5: TestMigrate_DoesNotTouchFTS5OrSyncMutations ───────────────────────

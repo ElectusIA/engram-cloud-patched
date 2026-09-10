@@ -16,8 +16,10 @@
 FROM golang:1.25-alpine AS builder
 RUN apk add --no-cache git
 WORKDIR /src
-ARG ENGRAM_REF=v1.19.0
+ARG ENGRAM_REF=v1.20.0
+ARG ENGRAM_COMMIT=ba9e46ced152c37a7cb9e576153c41995873e2fc
 RUN git clone --depth 1 --branch "${ENGRAM_REF}" https://github.com/Gentleman-Programming/engram.git .
+RUN test "$(git rev-parse HEAD)" = "${ENGRAM_COMMIT}"
 
 # Parche: permitir la clave `issued_token` (booleano) en el guard de metadata de auditoría.
 RUN set -eux; \
@@ -26,8 +28,18 @@ RUN set -eux; \
     sed -i 's/if key == "token_prefix" {/if key == "token_prefix" || key == "issued_token" {/' "$f"; \
     grep -q 'key == "issued_token"' "$f"
 
+COPY tests/electus_patch_test.go internal/cloud/cloudstore/electus_patch_test.go
+COPY tests/health_metadata.go internal/cloud/cloudserver/electus_metadata.go
+COPY tests/health_metadata_test.go internal/cloud/cloudserver/electus_metadata_test.go
+COPY tests/health-metadata.patch /tmp/health-metadata.patch
+RUN git apply --check /tmp/health-metadata.patch && git apply /tmp/health-metadata.patch
+COPY tests/store_cleanup_test.go internal/store/electus_cleanup_test.go
+COPY tests/store-constructor-cleanup.patch /tmp/store-constructor-cleanup.patch
+RUN git apply --check /tmp/store-constructor-cleanup.patch && git apply /tmp/store-constructor-cleanup.patch
+RUN go test ./internal/cloud/cloudstore ./internal/cloud/cloudserver ./internal/store -run 'TestElectusIssuedTokenAuditMetadata|TestElectusConstructorClosesDatabaseOnFailure|TestElectusHealthBuildIdentity' -count=1
+
 RUN CGO_ENABLED=0 GOOS=linux go build \
-      -ldflags="-s -w -X main.version=${ENGRAM_REF}-electus-patch1" \
+      -ldflags="-s -w -X main.version=${ENGRAM_REF}-electus-patch2" \
       -o /out/engram ./cmd/engram
 
 FROM alpine:3.21

@@ -1,107 +1,214 @@
 {
-  "upstream_commit": "ba9e46ced152c37a7cb9e576153c41995873e2fc",
-  "candidate_version": "v1.20.0-electus-patch2",
-  "toolchain": "go1.25.10 windows/amd64",
-  "patch_regression": {
-    "unpatched": "FAIL expected: issued_token rejected",
-    "patched": "PASS"
+  "upstream_tag": "v3.0.0",
+  "upstream_commit": "15a2f78885d7ad8ced23b2d1d88383e9bb472c17",
+  "candidate_version": "v3.0.0-electus-patch3",
+  "patch_revision": "electus-3.0.0-patch3",
+  "date": "2026-10-04",
+  "issue": "ElectusIA/electus-platform#241",
+  "toolchain": {
+    "go_mod": "go 1.25.10 (module github.com/Gentleman-Programming/engram/v3)",
+    "local": "go1.25.10 windows/amd64 (ZIP oficial verificado: ca37af2dadd8544464f1a9ca7c3886499d1cdfcb263855d0a1d71f194b2bd222)",
+    "ci": "actions/setup-go 1.25.10 en compatibility y windows",
+    "image_builder": "golang:1.25.10-alpine"
   },
-  "wide_windows_suite": {
-    "test_and_subtest_actions": {
-      "pass": 1276,
-      "fail": 5,
-      "skip": 29
-    },
-    "status": "FAIL",
-    "failed_tests": [
-      "TestManagerRunPanicRecovery",
-      "TestMigrate_Idempotent",
-      "TestNewErrorBranches/fails_when_migration_encounters_conflicting_object",
-      "TestNewErrorBranches (parent)",
-      "TestCapturePassiveRecordsToolCall"
+  "patch_regression": {
+    "test": "TestElectusIssuedTokenAuditMetadata",
+    "unpatched": "PASS: v3.0.0 admite issued_token solo con valor booleano (auditKeyValueExempt, internal/cloud/cloudstore/identity.go)",
+    "source_patch": "none: el sed de issued_token salió del Dockerfile, de candidate.yml y de validate-candidate.ps1"
+  },
+  "constructor_regression": {
+    "test": "TestElectusConstructorClosesDatabaseOnFailure",
+    "unpatched": "PASS: v3.0.0 newStore cierra la DB hasta el éxito (succeeded + defer db.Close)",
+    "mutant_without_upstream_close": "FAIL en 4/4 subtests (constructor leaked opened database): la regresión detecta la fuga",
+    "adaptation": "openDB(dbPath, generation) de v3; la DB inválida falla en «open initial connection» porque v3 envía los pragmas en el DSN"
+  },
+  "overlays": {
+    "kept": [
+      {
+        "file": "tests/health-metadata.patch",
+        "reason": "identidad de build en /health; rebasado sobre v3 (git apply --check limpio con core.autocrlf=false)"
+      },
+      {
+        "file": "tests/health_metadata.go",
+        "reason": "version 3.0.0 y patchRevision electus-3.0.0-patch3; imageDigest solo desde ENGRAM_IMAGE_DIGEST validado"
+      }
+    ],
+    "removed": [
+      {
+        "file": "tests/store-constructor-cleanup.patch",
+        "reason": "no aplica ni en reversa: v3 reescribió el constructor (newStore) y ya cierra la DB al fallar; queda tests/store_cleanup_test.go como regresión"
+      },
+      {
+        "file": "tests/relations-fixture.patch",
+        "reason": "no aplica ni en reversa: el fixture de v3 ya trae judgment_status, marked_by_actor y marked_by_kind"
+      },
+      {
+        "file": "tests/windows-test-fixtures.patch",
+        "reason": "no aplica ni en reversa: v3 reescribió TestManagerRunPanicRecovery (canales) y TestManagerPanicSetsBackoff (safeRun síncrono) y TestMigrate_Idempotent ya cierra rows"
+      }
+    ],
+    "regressions": [
+      "tests/electus_patch_test.go (sin cambios)",
+      "tests/store_cleanup_test.go (adaptada a v3)",
+      "tests/health_metadata_test.go (3.0.0)"
     ]
   },
-  "focused_retry": {
-    "TestManagerRunPanicRecovery": "FAIL same timing assertion",
-    "TestCapturePassiveRecordsToolCall": "PASS"
+  "suites": {
+    "local_windows_focused": {
+      "status": "PASS",
+      "tests": [
+        "TestElectusIssuedTokenAuditMetadata",
+        "TestElectusConstructorClosesDatabaseOnFailure",
+        "TestElectusHealthBuildIdentity"
+      ]
+    },
+    "local_windows_wide": {
+      "status": "PARTIAL",
+      "pass_packages": [
+        "internal/cloud",
+        "internal/cloud/auth",
+        "internal/cloud/autosync",
+        "internal/cloud/chunkcodec",
+        "internal/cloud/cloudserver",
+        "internal/cloud/cloudstore",
+        "internal/cloud/dashboard",
+        "internal/cloud/remote",
+        "internal/cloud/syncguidance"
+      ],
+      "not_concluded": [
+        "internal/store",
+        "internal/mcp"
+      ],
+      "note": "sin fallos observados; superan el presupuesto local de 570 s por comando. La suite completa la acredita el job windows (go test -timeout 50m)"
+    },
+    "ci": "candidate-validation del PR de platform#241 con compatibility (Linux + Postgres efímero), image y windows; el run del head queda en evidence/server/patched-pr.json del hub"
   },
   "builds": {
     "engram-candidate.exe": {
       "status": "PASS",
-      "bytes": 20093440,
-      "sha256": "a225592adaf473af1634bf63c9bd220792ddb1971a212a0965a8a0250554da76"
+      "bytes": 21682176,
+      "sha256": "019d4f8602948ba05f0ffe9623f57eff033f43105121fb32cadb11f884402272"
     },
     "engram-linux-amd64": {
       "status": "PASS",
-      "bytes": 19550392,
-      "sha256": "e7fcf0ddc601824aa20b8d0312d9f45382d4c8021cf2da0210608bcdb54e62a4"
-    }
-  },
-  "deployed": true,
-  "production_backup_restore": {
-    "status": "PASS isolated restore and candidate startup",
-    "tables": 11,
-    "format": "gzip PostgreSQL custom archive (pg_restore)",
-    "backup": "2026-09-10T03-00-00-178Z.sql.gz",
-    "sha256": "ee151e54ecf61d5e007ae6ac3ddcd2aa39106b9ed95314dcfbcd3ed11ed5d322",
-    "fresh_predeploy_backup": "2026-09-10T09-58-18-463Z.sql.gz"
-  },
-  "tooling_deployment": {
-    "commit": "e2bacded16e43f0011e142fa8497ff6e254fd2e3",
-    "date": "2026-09-10",
-    "health": "PASS",
-    "version": "1.20.0",
-    "patchRevision": "electus-1.20.0-patch2",
-    "docker_image_id": "sha256:42d8d68afd4069fe5d7c684e98d45ea2dfa740fc3cda2678f88e58f1ef620423",
-    "identity_note": "Docker content-addressed image ID verified by container inspection; not a registry RepoDigest. Exposed through ENGRAM_IMAGE_DIGEST.",
-    "multiagent": "Preserved at electus-1.19.0-preserved-194 with autoDeploy disabled; no deployment"
-  },
-  "official_windows_client": {
-    "version": "1.20.0",
-    "cli": "PASS isolated local save/search",
-    "mcp": "PASS initialize/tools/list/mem_search; 22 tools",
-    "cliSurfaceSha256": "4bee83dc6c1ee8bd3d557eb72d81bb25a42d0014599b2b9ed0debb026f3184ec",
-    "installed_globally": false
-  },
-  "isolated_cloud_recovery": {
-    "date": "2026-09-10",
-    "roundtrip": "PASS patched 1.20 client save/export twice/import into separate SQLite/search marker",
-    "rollback": "PASS preserved 1.19 server startup and health against the restored DB after 1.20 sync",
-    "limitations": "Not a full CLI 1.19/new-server matrix or native Claude/Codex functional smoke. No production rollback performed."
-  },
-  "local_docker": "unavailable daemon; image validated in CI",
-  "linux_ci": {
-    "status": "PASS",
-    "commit": "3985e8c",
-    "url": "https://github.com/ElectusIA/engram-cloud-patched/actions/runs/34383554110",
-    "coverage": [
-      "cloud with ephemeral PostgreSQL",
-      "SQLite store",
-      "MCP",
-      "Docker build and version execution"
-    ],
-    "fixture_overlay": "tests/relations-fixture.patch (test data only)",
-    "historical": true
-  },
-  "windows_corrected_suite": {
-    "status": "PASS",
-    "date": "2026-09-10",
-    "test_and_subtest_actions": {
-      "pass": 1286,
-      "fail": 0,
-      "skip": 29
+      "bytes": 21110968,
+      "sha256": "fc004996c34b37e68ffab4b7abb63799021c78a411264187021ba80c513ee980"
     },
-    "command": "./validate-candidate.ps1",
-    "fixes": [
-      "constructor database handle cleanup",
-      "close migration fixture rows",
-      "single-cycle panic recovery fixtures"
-    ],
-    "regression": "constructor RED before patch, GREEN after; focused repeats PASS"
+    "version_output": "engram v3.0.0-electus-patch3",
+    "note": "build local Windows con CGO_ENABLED=0 y los -ldflags de validate-candidate.ps1; sin -trimpath, el sha256 depende de la máquina"
   },
-  "current_patch_ci": {
-    "status": "PASS Windows, Linux/Postgres and Docker image",
-    "commit": "df2e7a0a441798d7506655d16984cb837af7d1fb",
-    "url": "https://github.com/ElectusIA/engram-cloud-patched/actions/runs/34463343554"
+  "deployed": false,
+  "promotion": "pendiente de V1 de platform#241: merge, tag electus-3.0.0-patch3 y despliegue en tooling solo tras confirmar autoDeploy apagado (DEC-45)",
+  "rollback": {
+    "tag": "electus-1.20.0-patch2",
+    "commit": "e2bacded16e43f0011e142fa8497ff6e254fd2e3",
+    "version": "v1.20.0-electus-patch2"
+  },
+  "previous_candidate_1_20": {
+    "upstream_commit": "ba9e46ced152c37a7cb9e576153c41995873e2fc",
+    "candidate_version": "v1.20.0-electus-patch2",
+    "toolchain": "go1.25.10 windows/amd64",
+    "patch_regression": {
+      "unpatched": "FAIL expected: issued_token rejected",
+      "patched": "PASS"
+    },
+    "wide_windows_suite": {
+      "test_and_subtest_actions": {
+        "pass": 1276,
+        "fail": 5,
+        "skip": 29
+      },
+      "status": "FAIL",
+      "failed_tests": [
+        "TestManagerRunPanicRecovery",
+        "TestMigrate_Idempotent",
+        "TestNewErrorBranches/fails_when_migration_encounters_conflicting_object",
+        "TestNewErrorBranches (parent)",
+        "TestCapturePassiveRecordsToolCall"
+      ]
+    },
+    "focused_retry": {
+      "TestManagerRunPanicRecovery": "FAIL same timing assertion",
+      "TestCapturePassiveRecordsToolCall": "PASS"
+    },
+    "builds": {
+      "engram-candidate.exe": {
+        "status": "PASS",
+        "bytes": 20093440,
+        "sha256": "a225592adaf473af1634bf63c9bd220792ddb1971a212a0965a8a0250554da76"
+      },
+      "engram-linux-amd64": {
+        "status": "PASS",
+        "bytes": 19550392,
+        "sha256": "e7fcf0ddc601824aa20b8d0312d9f45382d4c8021cf2da0210608bcdb54e62a4"
+      }
+    },
+    "deployed": true,
+    "production_backup_restore": {
+      "status": "PASS isolated restore and candidate startup",
+      "tables": 11,
+      "format": "gzip PostgreSQL custom archive (pg_restore)",
+      "backup": "2026-09-10T03-00-00-178Z.sql.gz",
+      "sha256": "ee151e54ecf61d5e007ae6ac3ddcd2aa39106b9ed95314dcfbcd3ed11ed5d322",
+      "fresh_predeploy_backup": "2026-09-10T09-58-18-463Z.sql.gz"
+    },
+    "tooling_deployment": {
+      "commit": "e2bacded16e43f0011e142fa8497ff6e254fd2e3",
+      "date": "2026-09-10",
+      "health": "PASS",
+      "version": "1.20.0",
+      "patchRevision": "electus-1.20.0-patch2",
+      "docker_image_id": "sha256:42d8d68afd4069fe5d7c684e98d45ea2dfa740fc3cda2678f88e58f1ef620423",
+      "identity_note": "Docker content-addressed image ID verified by container inspection; not a registry RepoDigest. Exposed through ENGRAM_IMAGE_DIGEST.",
+      "multiagent": "Preserved at electus-1.19.0-preserved-194 with autoDeploy disabled; no deployment"
+    },
+    "official_windows_client": {
+      "version": "1.20.0",
+      "cli": "PASS isolated local save/search",
+      "mcp": "PASS initialize/tools/list/mem_search; 22 tools",
+      "cliSurfaceSha256": "4bee83dc6c1ee8bd3d557eb72d81bb25a42d0014599b2b9ed0debb026f3184ec",
+      "installed_globally": false
+    },
+    "isolated_cloud_recovery": {
+      "date": "2026-09-10",
+      "roundtrip": "PASS patched 1.20 client save/export twice/import into separate SQLite/search marker",
+      "rollback": "PASS preserved 1.19 server startup and health against the restored DB after 1.20 sync",
+      "limitations": "Not a full CLI 1.19/new-server matrix or native Claude/Codex functional smoke. No production rollback performed."
+    },
+    "local_docker": "unavailable daemon; image validated in CI",
+    "linux_ci": {
+      "status": "PASS",
+      "commit": "3985e8c",
+      "url": "https://github.com/ElectusIA/engram-cloud-patched/actions/runs/34383554110",
+      "coverage": [
+        "cloud with ephemeral PostgreSQL",
+        "SQLite store",
+        "MCP",
+        "Docker build and version execution"
+      ],
+      "fixture_overlay": "tests/relations-fixture.patch (test data only)",
+      "historical": true
+    },
+    "windows_corrected_suite": {
+      "status": "PASS",
+      "date": "2026-09-10",
+      "test_and_subtest_actions": {
+        "pass": 1286,
+        "fail": 0,
+        "skip": 29
+      },
+      "command": "./validate-candidate.ps1",
+      "fixes": [
+        "constructor database handle cleanup",
+        "close migration fixture rows",
+        "single-cycle panic recovery fixtures"
+      ],
+      "regression": "constructor RED before patch, GREEN after; focused repeats PASS"
+    },
+    "current_patch_ci": {
+      "status": "PASS Windows, Linux/Postgres and Docker image",
+      "commit": "df2e7a0a441798d7506655d16984cb837af7d1fb",
+      "url": "https://github.com/ElectusIA/engram-cloud-patched/actions/runs/34463343554"
+    }
   }
 }

@@ -15,7 +15,7 @@ func TestElectusHealthBuildIdentity(t *testing.T) {
 			(&CloudServer{}).handleHealth(response, httptest.NewRequest("GET", "/health", nil))
 			var body map[string]any
 			if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil { t.Fatal(err) }
-			if response.Code != 200 || body["version"] != "1.20.0" || body["patchRevision"] != "electus-1.20.0-patch2" { t.Fatalf("missing build identity: %v", body) }
+			if response.Code != 200 || body["version"] != "3.0.0" || body["patchRevision"] != "electus-3.0.0-patch3" { t.Fatalf("missing build identity: %v", body) }
 			if strings.HasPrefix(digest, "sha256:") { if body["imageDigest"] != digest { t.Fatal("valid deployment digest missing") } } else if _, exists := body["imageDigest"]; exists { t.Fatal("unverified digest exposed") }
 		})
 	}

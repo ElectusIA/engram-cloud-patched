@@ -8,15 +8,20 @@ import (
 	"testing"
 )
 
-// Inspect ownership on failure, including Unix where unlink would hide a leaked handle.
+// Regression kept from electus-1.20.0-patch2: upstream v3.0.0 closes the database on
+// constructor failure (newStore defers db.Close until success), so this test passes
+// without an Electus patch. Inspect ownership on failure, including Unix where unlink
+// would hide a leaked handle. In v3 the SQLite pragmas travel in the DSN, so an invalid
+// database file fails when the first connection opens instead of at a pragma statement.
 func TestElectusConstructorClosesDatabaseOnFailure(t *testing.T) {
+	stages := map[string]string{"invalid-database": "open initial connection", "migration": "migration"}
 	for name, constructor := range map[string]func(Config) (*Store, error){"New": New, "withoutRepair": newWithoutRepair} {
-		for _, failure := range []string{"pragma", "migration"} {
+		for failure, stage := range stages {
 			t.Run(name+"/"+failure, func(t *testing.T) {
 				cfg := mustDefaultConfig(t)
 				cfg.DataDir = t.TempDir()
 				file := filepath.Join(cfg.DataDir, "engram.db")
-				if failure == "pragma" {
+				if failure == "invalid-database" {
 					if err := os.WriteFile(file, []byte("invalid SQLite database"), 0600); err != nil {
 						t.Fatal(err)
 					}
@@ -36,9 +41,9 @@ func TestElectusConstructorClosesDatabaseOnFailure(t *testing.T) {
 				}
 				original := openDB
 				var opened *sql.DB
-				openDB = func(driver, dsn string) (*sql.DB, error) {
+				openDB = func(dbPath string, generation *databaseGeneration) (*sql.DB, error) {
 					var err error
-					opened, err = original(driver, dsn)
+					opened, err = original(dbPath, generation)
 					return opened, err
 				}
 				t.Cleanup(func() {
@@ -48,8 +53,8 @@ func TestElectusConstructorClosesDatabaseOnFailure(t *testing.T) {
 					}
 				})
 				_, err := constructor(cfg)
-				if err == nil || !strings.Contains(err.Error(), failure) {
-					t.Fatalf("expected %s failure, got %v", failure, err)
+				if err == nil || !strings.Contains(err.Error(), stage) {
+					t.Fatalf("expected %s failure, got %v", stage, err)
 				}
 				if opened == nil {
 					t.Fatal("constructor did not open database")

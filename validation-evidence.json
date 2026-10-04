@@ -79,9 +79,22 @@
         "internal/store",
         "internal/mcp"
       ],
-      "note": "sin fallos observados; superan el presupuesto local de 570 s por comando. La suite completa la acredita el job windows (go test -timeout 50m)"
+      "note": "sin fallos observados con TEMP en forma larga; store y mcp superan el presupuesto local de 570 s por comando. La suite completa la acredita el job windows (go test -timeout 20m)"
     },
-    "ci": "candidate-validation del PR de platform#241 con compatibility (Linux + Postgres efímero), image y windows; el run del head queda en evidence/server/patched-pr.json del hub"
+    "ci": {
+      "workflow": "candidate-validation (compatibility: Linux + Postgres efímero; image; windows)",
+      "round_1": {
+        "run": "https://github.com/ElectusIA/engram-cloud-patched/actions/runs/37196390394",
+        "commit": "b5a04c50e6d4d9da1fa89013758bfa02791225a4",
+        "compatibility": "success",
+        "image": "success",
+        "windows": "failure: 9 tests upstream (store: TestLegacyEmptyPromptDiscardRevalidationErrors, TestLegacyEmptyPromptDiscardPostBackupStale, TestLegacyEmptyPromptDiscardSuccess; mcp: TestAmbiguousRecoveryConcurrentSameChoiceBootstrap y 4 TestMemSave*/TestMemSavePrompt* Ambiguous*); el resto de paquetes pasa; store 282 s y mcp 186 s en el runner",
+        "root_cause": "el runner Windows expone TEMP en forma 8.3 (RUNNER~1) y v3 canoniza rutas con filepath.EvalSymlinks (forma larga): las aserciones comparan dos grafías de la misma ruta. No es un defecto del binario",
+        "local_reproduction": "Windows, Go 1.25.10: los 9 tests FALLAN con TMP/TEMP en forma 8.3 y PASAN con la forma larga",
+        "fix": "validate-candidate.ps1 usa RUNNER_TEMP (ruta larga fuera de cualquier checkout git) para TMP/TEMP y falla si TMP o TEMP siguen en forma 8.3; sin cambios en el código de upstream ni en sus tests"
+      },
+      "final": "el run verde del head queda en evidence/server/patched-pr.json del hub (electus-platform, change stack-e-engram-autoupdate)"
+    }
   },
   "builds": {
     "engram-candidate.exe": {

@@ -39,7 +39,9 @@ fuga del constructor del store, así que salen el `sed` y `store-constructor-cle
 `relations-fixture.patch` y `windows-test-fixtures.patch` también salen porque v3 trae código
 equivalente. Queda un solo overlay: la identidad de build de `/health` (`3.0.0`,
 `electus-3.0.0-patch3` e `imageDigest` opcional). Las regresiones `electus_patch_test.go` y
-`store_cleanup_test.go` PASAN sin parche. El merge, el tag `electus-3.0.0-patch3` y el
+`store_cleanup_test.go` PASAN sin parche. En Windows, el script fija TMP/TEMP en una ruta larga
+(`RUNNER_TEMP` en Actions): v3 canoniza rutas y la forma 8.3 de `TEMP` del runner rompía 9
+aserciones de rutas de upstream. El merge, el tag `electus-3.0.0-patch3` y el
 despliegue son de la ventana V1 de platform#241. Rollback: tag `electus-1.20.0-patch2`.
 Detalle en `validation-evidence.json`; lo de abajo describe la imagen 1.20 desplegada.
 

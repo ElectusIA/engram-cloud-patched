@@ -6,6 +6,17 @@ $env:GOPATH = Join-Path $candidateRoot '.tools/gopath'
 $env:GOCACHE = Join-Path $candidateRoot '.tools/gocache'
 $env:GOTOOLCHAIN = 'local'
 $env:ENGRAM_DATA_DIR = Join-Path $candidateRoot 'artifacts/data'
+# t.TempDir() follows TMP/TEMP. GitHub Windows runners expose TEMP in 8.3 form (RUNNER~1 instead of runneradmin) while v3
+# canonicalizes paths with filepath.EvalSymlinks (long form), so path assertions would compare two spellings.
+# RUNNER_TEMP is a long path outside any git checkout (v3 project detection walks up to the git root).
+if ($env:RUNNER_TEMP) {
+    $env:TMP = $env:RUNNER_TEMP
+    $env:TEMP = $env:RUNNER_TEMP
+}
+foreach ($tempVar in @('TMP', 'TEMP')) {
+    $tempValue = [Environment]::GetEnvironmentVariable($tempVar)
+    if ($tempValue -and $tempValue.Contains('~')) { throw "$tempVar is an 8.3 short path; point TMP and TEMP to a long path outside any git checkout" }
+}
 $env:CLOUDSTORE_TEST_DSN = ''
 $env:ENGRAM_CLOUD_TOKEN = ''
 $env:ENGRAM_CLOUD_SERVER = ''
@@ -45,8 +56,8 @@ try {
     if (Test-Path ../artifacts/go-tests.jsonl) {
         Copy-Item ../artifacts/go-tests.jsonl ("../artifacts/go-tests.previous-{0}.jsonl" -f [DateTime]::UtcNow.ToString('yyyyMMddTHHmmssfff')) -ErrorAction Stop
     }
-    # v3 store and mcp suites run far longer on Windows than the default 10m per test binary.
-    & $goBinary test ./internal/cloud/... ./internal/store ./internal/mcp -count=1 -timeout 50m -json *> ../artifacts/go-tests.jsonl
+    # v3 store and mcp suites are much larger than in 1.20 (about 5 and 3 minutes on a GitHub Windows runner).
+    & $goBinary test ./internal/cloud/... ./internal/store ./internal/mcp -count=1 -timeout 20m -json *> ../artifacts/go-tests.jsonl
     if ($LASTEXITCODE -ne 0) { throw 'Go tests failed; see artifacts/go-tests.jsonl' }
     $env:CGO_ENABLED = '0'
     & $goBinary build '-ldflags=-s -w -X main.version=v3.0.0-electus-patch3' -o ../artifacts/engram-candidate.exe ./cmd/engram

@@ -22,29 +22,26 @@ jobs:
         with:
           go-version: '1.25.10'
           cache: false
-      - name: Prepare exact upstream and Electus patch
+      - name: Prepare exact upstream and Electus overlays
         shell: bash
         run: |
-          git clone --depth 1 --branch v1.20.0 https://github.com/Gentleman-Programming/engram.git upstream
-          test "$(git -C upstream rev-parse HEAD)" = ba9e46ced152c37a7cb9e576153c41995873e2fc
+          git clone --depth 1 --branch v3.0.0 https://github.com/Gentleman-Programming/engram.git upstream
+          test "$(git -C upstream rev-parse HEAD)" = 15a2f78885d7ad8ced23b2d1d88383e9bb472c17
           cp tests/electus_patch_test.go upstream/internal/cloud/cloudstore/
+          cp tests/store_cleanup_test.go upstream/internal/store/electus_cleanup_test.go
           cd upstream
-          if go test ./internal/cloud/cloudstore -run TestElectusIssuedTokenAuditMetadata -count=1; then
-            echo 'Expected unpatched regression failure; review whether patch remains necessary'
+          # v3.0.0 fixes issued_token upstream (auditKeyValueExempt): the regression must PASS with no sed.
+          if grep -q 'key == "issued_token"' internal/cloud/cloudstore/identity.go; then
+            echo 'Unexpected issued_token source patch in the upstream checkout'
             exit 1
           fi
-          sed -i 's/if key == "token_prefix" {/if key == "token_prefix" || key == "issued_token" {/' internal/cloud/cloudstore/identity.go
           go test ./internal/cloud/cloudstore -run TestElectusIssuedTokenAuditMetadata -count=1
-          git apply ../tests/relations-fixture.patch
-          cp ../tests/store_cleanup_test.go internal/store/electus_cleanup_test.go
-          if go test ./internal/store -run TestElectusConstructorClosesDatabaseOnFailure -count=1; then
-            echo 'Expected unpatched constructor leak regression failure'
-            exit 1
-          fi
-          git apply ../tests/store-constructor-cleanup.patch
-          git apply ../tests/windows-test-fixtures.patch
+          # v3.0.0 closes the store on constructor failure: the regression must PASS with no Electus patch.
+          go test ./internal/store -run TestElectusConstructorClosesDatabaseOnFailure -count=1
+          # relations-fixture, store-constructor-cleanup and windows-test-fixtures left: v3.0.0 ships equivalent code.
           cp ../tests/health_metadata.go internal/cloud/cloudserver/electus_metadata.go
           cp ../tests/health_metadata_test.go internal/cloud/cloudserver/electus_metadata_test.go
+          git apply --check ../tests/health-metadata.patch
           git apply ../tests/health-metadata.patch
       - name: Cloud, SQLite and MCP compatibility with ephemeral Postgres
         working-directory: upstream
@@ -56,11 +53,11 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-      - run: docker build --tag engram-candidate:194 .
-      - run: docker run --rm engram-candidate:194 version
+      - run: docker build --tag engram-candidate:241 .
+      - run: test "$(docker run --rm engram-candidate:241 version)" = "engram v3.0.0-electus-patch3"
   windows:
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -70,3 +67,10 @@ jobs:
       - name: Windows suite and Windows/Linux builds
         shell: pwsh
         run: ./validate-candidate.ps1 -GoBinary (Get-Command go).Source
+      - name: Keep Windows test log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-go-tests
+          path: artifacts/go-tests*.jsonl
+          retention-days: 7

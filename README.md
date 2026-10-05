@@ -21,13 +21,29 @@ secreto. Ver `Dockerfile`.
 
 ## Build
 
-Multi-stage: clona el tag `ENGRAM_REF` (default `v1.20.0`), aplica el parche por `sed` (con
-verificación pre y post), y compila el binario Go. Runtime `alpine`, usuario no-root, mismo
-`ENTRYPOINT`/`CMD`/puerto que la imagen oficial (`cloud serve` en `:18080`).
+Multi-stage: clona el tag `ENGRAM_REF` (default `v3.0.0`), verifica su commit, aplica el overlay
+de `/health`, corre las tres regresiones Electus y compila el binario Go con
+`golang:1.25.10-alpine`. Runtime `alpine`, usuario no-root, mismo `ENTRYPOINT`/`CMD`/puerto
+(`cloud serve` en `:18080`). Desde v3.0.0 ya no hay `sed`: el bug de `issued_token` está
+corregido upstream.
 
 ## Provisional
 
 Mantener hasta que el upstream corrija el bug; entonces volver a la imagen oficial pineada.
+
+## Candidato v3.0.0 (platform#241, 2026-10-04, sin desplegar)
+
+`v3.0.0-electus-patch3` sobre upstream `15a2f78885d7ad8ced23b2d1d88383e9bb472c17`.
+Upstream v3.0.0 corrige `issued_token` (`auditKeyValueExempt`, solo con valor booleano) y la
+fuga del constructor del store, así que salen el `sed` y `store-constructor-cleanup.patch`;
+`relations-fixture.patch` y `windows-test-fixtures.patch` también salen porque v3 trae código
+equivalente. Queda un solo overlay: la identidad de build de `/health` (`3.0.0`,
+`electus-3.0.0-patch3` e `imageDigest` opcional). Las regresiones `electus_patch_test.go` y
+`store_cleanup_test.go` PASAN sin parche. En Windows, el script fija TMP/TEMP en una ruta larga
+(`RUNNER_TEMP` en Actions): v3 canoniza rutas y la forma 8.3 de `TEMP` del runner rompía 9
+aserciones de rutas de upstream. El merge, el tag `electus-3.0.0-patch3` y el
+despliegue son de la ventana V1 de platform#241. Rollback: tag `electus-1.20.0-patch2`.
+Detalle en `validation-evidence.json`; lo de abajo describe la imagen 1.20 desplegada.
 
 ## Estado vigente (2026-09-10)
 
